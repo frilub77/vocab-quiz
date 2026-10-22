@@ -163,6 +163,10 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
     var out = [], seen = {}, bad = 0;
     rows.forEach(function(r, i){
       var en = (r[0]||'').trim(), zh = (r[1]||'').trim();
+      if(en && !zh){
+        var m = en.match(/^([\x00-\x7F]+?)\s*([^\x00-\x7F][\s\S]*)$/);
+        if(m){ en = m[1].trim(); zh = m[2].trim(); }
+      }
       if(!en || !zh) return;
       if(i === 0 && /^(english|word|英文|單字)$/i.test(en)) return;
       var book = (r[2]||'').trim() || '未分類教材';
