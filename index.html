@@ -6,7 +6,7 @@
 <title>單字測驗</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#eef2f5; --surface:#ffffff; --ink:#14232e; --muted:#5d6e7a; --line:#cfd9e0;
@@ -15,7 +15,7 @@
   --display:"Space Grotesk","Helvetica Neue",Arial,sans-serif;
 }
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
+  :root{
     --bg:#0f1a21; --surface:#18262f; --ink:#e6eef3; --muted:#93a5b1; --line:#2c3f4b;
     --accent:#4fc3d9; --accent-ink:#06222a; --ok:#6fd8a2; --ok-bg:#183a2a; --bad:#ff8f86; --bad-bg:#43211f;
   }
@@ -23,14 +23,10 @@
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;min-height:100vh}
-main{max-width:640px;margin:0 auto;padding:24px 16px 64px}
+main{max-width:640px;margin:0 auto;padding:24px 16px 48px}
 h1{font:700 1.25rem var(--sans);margin:0 0 16px}
-nav{display:flex;gap:8px;margin-bottom:20px}
-nav button{flex:1;padding:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 1rem var(--sans);border-radius:8px;cursor:pointer}
-nav button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-section[hidden]{display:none}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
 .progress{display:flex;justify-content:space-between;color:var(--muted);font-size:.9rem;margin-bottom:8px}
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:24px}
 .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
@@ -42,92 +38,35 @@ section[hidden]{display:none}
 .opt.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
 .opt:disabled{cursor:default}
 .primary{padding:12px 20px;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:700 1rem var(--sans);cursor:pointer}
-.ghost{padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font:500 .9rem var(--sans);cursor:pointer}
 .next{margin-top:18px;width:100%}
 .msg{color:var(--muted);text-align:center;padding:12px 0}
 .score{font:700 3rem var(--display);text-align:center}
-label{display:block;font-weight:500;margin:12px 0 4px}
-input,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:400 1rem var(--sans)}
-textarea{min-height:110px;resize:vertical}
-.row{display:flex;gap:10px}.row>div{flex:1}
-.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.hint{color:var(--muted);font-size:.85rem;margin:6px 0 0}
-ul.list{list-style:none;margin:0;padding:0}
-ul.list li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
-ul.list li:last-child{border-bottom:0}
-ul.list .en{font:700 1rem var(--display);min-width:35%}
-ul.list .zh{flex:1;color:var(--muted)}
 .wrong-list{margin:12px 0 0;padding-left:20px}
+.status{color:var(--muted);font-size:.8rem;text-align:center;margin-top:14px}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
 </style>
 </head>
 <body>
 <main>
   <h1>單字測驗</h1>
-  <nav role="tablist">
-    <button role="tab" id="tab-quiz" aria-selected="true">測驗</button>
-    <button role="tab" id="tab-bank" aria-selected="false">題庫</button>
-  </nav>
-
-  <!-- 測驗 -->
   <section id="quiz"></section>
-
-  <!-- 題庫 -->
-  <section id="bank" hidden>
-    <div class="panel">
-      <strong>新增單字</strong>
-      <div class="row">
-        <div><label for="en">英文</label><input id="en" autocomplete="off" autocapitalize="none"></div>
-        <div><label for="zh">中文翻譯</label><input id="zh" autocomplete="off"></div>
-      </div>
-      <div class="tools"><button class="primary" id="add">新增</button></div>
-      <p class="hint" id="addMsg" role="status"></p>
-    </div>
-
-    <div class="panel">
-      <strong>批次新增</strong>
-      <label for="bulk">每行一個單字，格式：英文,中文</label>
-      <textarea id="bulk" placeholder="apple,蘋果&#10;library,圖書館&#10;borrow,借（入）"></textarea>
-      <div class="tools"><button class="primary" id="bulkAdd">批次新增</button></div>
-      <p class="hint" id="bulkMsg" role="status"></p>
-    </div>
-
-    <div class="panel">
-      <strong>目前題庫（<span id="count">0</span> 個）</strong>
-      <ul class="list" id="list"></ul>
-      <div class="tools">
-        <button class="ghost" id="export">匯出 JSON</button>
-        <button class="ghost" id="importBtn">匯入 JSON</button>
-        <button class="ghost" id="clear">清空題庫</button>
-        <input type="file" id="importFile" accept="application/json,.json" hidden>
-      </div>
-      <p class="hint">資料儲存在這個瀏覽器中。換電腦或清除瀏覽器資料前，請先匯出備份。</p>
-    </div>
-  </section>
+  <p class="status" id="status" role="status"></p>
 </main>
 
 <script>
+/* ★ 設定：把「發布到網路」的 CSV 連結貼在下面的引號內 ★ */
+var SHEET_URL = '';
+
 (function(){
-  var KEY = 'vocab-quiz-words-v1';
+  var CACHE_KEY = 'vocab-quiz-cache-v2';
   var SAMPLE = [
     {en:'apple',zh:'蘋果'},{en:'library',zh:'圖書館'},{en:'borrow',zh:'借（入）'},
-    {en:'journey',zh:'旅程'},{en:'careful',zh:'小心的'},{en:'improve',zh:'改善'},
-    {en:'weather',zh:'天氣'},{en:'knowledge',zh:'知識'}
+    {en:'journey',zh:'旅程'},{en:'careful',zh:'小心的'},{en:'improve',zh:'改善'}
   ];
-  var words = load();
+  var words = [];
   var quiz = null;
   var $ = function(id){ return document.getElementById(id); };
 
-  function load(){
-    try{
-      var raw = localStorage.getItem(KEY);
-      if(raw){ var a = JSON.parse(raw); if(Array.isArray(a)) return a; }
-    }catch(e){}
-    return SAMPLE.slice();
-  }
-  function save(){
-    try{ localStorage.setItem(KEY, JSON.stringify(words)); }catch(e){}
-  }
   function shuffle(a){
     a = a.slice();
     for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; }
@@ -140,16 +79,62 @@ ul.list .zh{flex:1;color:var(--muted)}
     return e;
   }
 
-  /* ---------- 分頁 ---------- */
-  function showTab(name){
-    $('quiz').hidden = name!=='quiz';
-    $('bank').hidden = name!=='bank';
-    $('tab-quiz').setAttribute('aria-selected', name==='quiz');
-    $('tab-bank').setAttribute('aria-selected', name==='bank');
-    if(name==='quiz') startQuiz();
+  /* ---------- 讀取雲端題庫（Google 試算表 CSV） ---------- */
+  function parseCSV(text){
+    var rows = [], row = [], cell = '', q = false;
+    for(var i=0;i<text.length;i++){
+      var c = text[i];
+      if(q){
+        if(c === '"'){ if(text[i+1] === '"'){ cell += '"'; i++; } else q = false; }
+        else cell += c;
+      }else if(c === '"') q = true;
+      else if(c === ','){ row.push(cell); cell = ''; }
+      else if(c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ''; }
+      else if(c !== '\r') cell += c;
+    }
+    row.push(cell); rows.push(row);
+    return rows;
   }
-  $('tab-quiz').onclick = function(){ showTab('quiz'); };
-  $('tab-bank').onclick = function(){ showTab('bank'); };
+  function toWords(rows){
+    var out = [], seen = {};
+    rows.forEach(function(r, i){
+      var en = (r[0]||'').trim(), zh = (r[1]||'').trim();
+      if(!en || !zh) return;
+      if(i === 0 && /^(english|word|英文|單字)$/i.test(en)) return;
+      var k = en.toLowerCase();
+      if(seen[k]) return;
+      seen[k] = 1; out.push({en:en, zh:zh});
+    });
+    return out;
+  }
+  function cacheGet(){
+    try{ var a = JSON.parse(localStorage.getItem(CACHE_KEY)); if(Array.isArray(a) && a.length) return a; }catch(e){}
+    return null;
+  }
+  function cacheSet(a){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(a)); }catch(e){} }
+
+  function loadWords(){
+    if(!SHEET_URL){
+      words = SAMPLE; setStatus('尚未設定雲端題庫，目前使用範例單字。'); startQuiz(); return;
+    }
+    $('quiz').appendChild(el('p','msg','題庫載入中…'));
+    var sep = SHEET_URL.indexOf('?') > -1 ? '&' : '?';
+    fetch(SHEET_URL + sep + 't=' + Date.now())
+      .then(function(r){ if(!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function(t){
+        words = toWords(parseCSV(t));
+        if(words.length) cacheSet(words);
+        setStatus('題庫共 ' + words.length + ' 個單字');
+        startQuiz();
+      })
+      .catch(function(){
+        var c = cacheGet();
+        if(c){ words = c; setStatus('無法連上雲端，使用上次載入的題庫（' + c.length + ' 個單字）'); }
+        else { words = SAMPLE; setStatus('無法連上雲端題庫，目前使用範例單字。'); }
+        startQuiz();
+      });
+  }
+  function setStatus(t){ $('status').textContent = t; }
 
   /* ---------- 測驗 ---------- */
   function startQuiz(){
@@ -172,7 +157,7 @@ ul.list .zh{flex:1;color:var(--muted)}
     box.appendChild(panel);
 
     if(!quiz){
-      panel.appendChild(el('p','msg','題庫至少需要 4 個不同的單字才能出題。請先到「題庫」新增單字。'));
+      panel.appendChild(el('p','msg','題庫至少需要 4 個不同的單字才能出題，請老師先到試算表新增。'));
       return;
     }
     if(quiz.i >= quiz.queue.length){
@@ -210,8 +195,7 @@ ul.list .zh{flex:1;color:var(--muted)}
       b.onclick = function(){
         if(quiz.answered) return;
         quiz.answered = true;
-        var correct = text === cur.zh;
-        if(correct) quiz.score++; else quiz.wrong.push(cur);
+        if(text === cur.zh) quiz.score++; else quiz.wrong.push(cur);
         Array.prototype.forEach.call(opts.children, function(o){
           o.disabled = true;
           if(o.textContent === cur.zh) o.classList.add('ok');
@@ -226,79 +210,7 @@ ul.list .zh{flex:1;color:var(--muted)}
     panel.appendChild(next);
   }
 
-  /* ---------- 題庫 ---------- */
-  function upsert(en, zh){
-    en = en.trim(); zh = zh.trim();
-    if(!en || !zh) return false;
-    var hit = words.filter(function(w){ return w.en.toLowerCase() === en.toLowerCase(); })[0];
-    if(hit) hit.zh = zh; else words.push({en:en, zh:zh});
-    return true;
-  }
-  function renderList(){
-    $('count').textContent = words.length;
-    var ul = $('list'); ul.textContent = '';
-    if(!words.length){ ul.appendChild(el('li','msg','還沒有單字，請從上方新增。')); return; }
-    words.forEach(function(w, idx){
-      var li = el('li');
-      li.appendChild(el('span','en',w.en));
-      li.appendChild(el('span','zh',w.zh));
-      var del = el('button','ghost','刪除');
-      del.setAttribute('aria-label','刪除 ' + w.en);
-      del.onclick = function(){ words.splice(idx,1); save(); renderList(); };
-      li.appendChild(del);
-      ul.appendChild(li);
-    });
-  }
-
-  $('add').onclick = function(){
-    if(upsert($('en').value, $('zh').value)){
-      save(); renderList();
-      $('addMsg').textContent = '已新增「' + $('en').value.trim() + '」。';
-      $('en').value = ''; $('zh').value = ''; $('en').focus();
-    }else{
-      $('addMsg').textContent = '英文和中文都要填寫。';
-    }
-  };
-  $('zh').addEventListener('keydown', function(e){ if(e.key==='Enter') $('add').click(); });
-
-  $('bulkAdd').onclick = function(){
-    var ok = 0, bad = 0;
-    $('bulk').value.split(/\r?\n/).forEach(function(line){
-      line = line.trim(); if(!line) return;
-      var m = line.match(/^(.+?)\s*[,，\t]\s*(.+)$/);
-      if(m && upsert(m[1], m[2])) ok++; else bad++;
-    });
-    save(); renderList();
-    $('bulkMsg').textContent = '新增 ' + ok + ' 個' + (bad ? '，' + bad + ' 行格式不正確已略過' : '') + '。';
-    if(ok) $('bulk').value = '';
-  };
-
-  $('export').onclick = function(){
-    var blob = new Blob([JSON.stringify(words, null, 2)], {type:'application/json'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = 'vocab.json';
-    document.body.appendChild(a); a.click(); a.remove();
-  };
-  $('importBtn').onclick = function(){ $('importFile').click(); };
-  $('importFile').onchange = function(e){
-    var f = e.target.files[0]; if(!f) return;
-    var r = new FileReader();
-    r.onload = function(){
-      try{
-        var a = JSON.parse(r.result), n = 0;
-        a.forEach(function(w){ if(w && upsert(String(w.en||''), String(w.zh||''))) n++; });
-        save(); renderList();
-        alert('已匯入 ' + n + ' 個單字。');
-      }catch(err){ alert('檔案格式不正確，請選擇由本工具匯出的 JSON。'); }
-    };
-    r.readAsText(f); e.target.value = '';
-  };
-  $('clear').onclick = function(){
-    if(confirm('確定要清空整個題庫嗎？此動作無法復原。')){ words = []; save(); renderList(); }
-  };
-
-  renderList();
-  startQuiz();
+  loadWords();
 })();
 </script>
 </body>
