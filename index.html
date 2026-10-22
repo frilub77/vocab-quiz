@@ -25,12 +25,27 @@ html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;min-height:100vh}
 main{max-width:640px;margin:0 auto;padding:24px 16px 48px}
 h1{font:700 1.25rem var(--sans);margin:0 0 16px}
-button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
+.field{margin-bottom:18px}
+.field>b{display:block;margin-bottom:6px;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.chip span{display:inline-block;padding:8px 14px;border:2px solid var(--line);border-radius:999px;font-weight:500}
+.chip input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip input:focus-visible+span{outline:3px solid var(--accent);outline-offset:2px}
+select,input[type=number],input[type=text]{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:400 1rem var(--sans)}
+select{width:100%}
+input[type=number]{width:80px}
 .progress{display:flex;justify-content:space-between;color:var(--muted);font-size:.9rem;margin-bottom:8px}
-.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:24px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:14px}
 .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
-.word{font:700 clamp(2.4rem,11vw,3.8rem) var(--display);letter-spacing:-.02em;text-align:center;margin:8px 0 28px;word-break:break-word}
+.tag{display:inline-block;font-size:.85rem;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 10px;margin-bottom:6px}
+.wordrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 24px}
+.word{font:700 clamp(2.2rem,10vw,3.6rem) var(--display);letter-spacing:-.02em;text-align:center;word-break:break-word}
+.zhq{font:700 clamp(1.8rem,8vw,2.6rem) var(--sans);text-align:center;margin:8px 0}
+.blanks{font:500 1.3rem monospace;letter-spacing:.15em;text-align:center;color:var(--muted);margin-bottom:12px;word-break:break-all}
 .options{display:grid;gap:10px}
 .opt{padding:14px 16px;text-align:left;border:2px solid var(--line);background:var(--surface);color:var(--ink);font:500 1.1rem var(--sans);border-radius:10px;cursor:pointer}
 .opt:hover:not(:disabled){border-color:var(--accent)}
@@ -38,10 +53,18 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .opt.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
 .opt:disabled{cursor:default}
 .primary{padding:12px 20px;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:700 1rem var(--sans);cursor:pointer}
-.next{margin-top:18px;width:100%}
+.primary:disabled{opacity:.5;cursor:default}
+.ghost{padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font:500 .9rem var(--sans);cursor:pointer}
+.speak{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:1.2rem;cursor:pointer;flex:none}
+.full{width:100%;margin-top:14px}
+.spell{display:flex;gap:8px;margin-top:6px}
+.spell input{flex:1;font-size:1.2rem;min-width:0}
+.fb{min-height:1.6em;text-align:center;font-weight:700;margin-top:12px}
+.fb.ok{color:var(--ok)}.fb.bad{color:var(--bad)}
 .msg{color:var(--muted);text-align:center;padding:12px 0}
 .score{font:700 3rem var(--display);text-align:center}
 .wrong-list{margin:12px 0 0;padding-left:20px}
+.hint{color:var(--muted);font-size:.85rem;margin:6px 0 0}
 .status{color:var(--muted);font-size:.8rem;text-align:center;margin-top:14px}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
 </style>
@@ -58,28 +81,55 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuBaPtBPrQQBJ6xcxlhAV0wJYPquqX6sIGEhobQH-XxxUR-72UVmdEc9eIUTaZeMQue/pub?gid=0&single=true&output=csv';
 
 (function(){
-  var CACHE_KEY = 'vocab-quiz-cache-v2';
+  var CACHE = 'vocab-quiz-cache-v3', PREF = 'vocab-quiz-pref-v1';
   var SAMPLE = [
-    {en:'apple',zh:'蘋果'},{en:'library',zh:'圖書館'},{en:'borrow',zh:'借（入）'},
-    {en:'journey',zh:'旅程'},{en:'careful',zh:'小心的'},{en:'improve',zh:'改善'}
+    {en:'apple',zh:'蘋果',book:'範例教材',lesson:'第一課'},
+    {en:'library',zh:'圖書館',book:'範例教材',lesson:'第一課'},
+    {en:'borrow',zh:'借（入）',book:'範例教材',lesson:'第一課'},
+    {en:'journey',zh:'旅程',book:'範例教材',lesson:'第二課'},
+    {en:'careful',zh:'小心的',book:'範例教材',lesson:'第二課'},
+    {en:'improve',zh:'改善',book:'範例教材',lesson:'第二課'}
   ];
-  var words = [];
-  var quiz = null;
+  var words = [], quiz = null;
+  var cfg = {book:'', lessons:[], mode:'choice', count:'all', custom:10, auto:false};
   var $ = function(id){ return document.getElementById(id); };
+  var HAS_TTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+
+  try{ var sp = JSON.parse(localStorage.getItem(PREF)); if(sp) for(var k in sp) cfg[k] = sp[k]; }catch(e){}
 
   function shuffle(a){
     a = a.slice();
     for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; }
     return a;
   }
+  function uniq(a){ return a.filter(function(x,i){ return a.indexOf(x)===i; }); }
+  function norm(s){ return String(s).trim().toLowerCase().replace(/\s+/g,' '); }
   function el(tag, cls, text){
     var e = document.createElement(tag);
     if(cls) e.className = cls;
     if(text!=null) e.textContent = text;
     return e;
   }
+  function setStatus(t){ $('status').textContent = t; }
 
-  /* ---------- 讀取雲端題庫（Google 試算表 CSV） ---------- */
+  /* ---------- 發音 ---------- */
+  function speak(t){
+    if(!HAS_TTS) return;
+    try{
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(t);
+      u.lang = 'en-US'; u.rate = 0.85;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  function speakBtn(text){
+    var b = el('button','speak','🔊');
+    b.setAttribute('aria-label','朗讀');
+    b.onclick = function(){ speak(text); };
+    return b;
+  }
+
+  /* ---------- 讀取雲端題庫 ---------- */
   function parseCSV(text){
     var rows = [], row = [], cell = '', q = false;
     for(var i=0;i<text.length;i++){
@@ -101,21 +151,22 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
       var en = (r[0]||'').trim(), zh = (r[1]||'').trim();
       if(!en || !zh) return;
       if(i === 0 && /^(english|word|英文|單字)$/i.test(en)) return;
-      var k = en.toLowerCase();
-      if(seen[k]) return;
-      seen[k] = 1; out.push({en:en, zh:zh});
+      var book = (r[2]||'').trim() || '未分類教材';
+      var lesson = (r[3]||'').trim() || '未分課';
+      var key = [en.toLowerCase(), book, lesson].join('|');
+      if(seen[key]) return;
+      seen[key] = 1; out.push({en:en, zh:zh, book:book, lesson:lesson});
     });
     return out;
   }
+  function cacheSet(a){ try{ localStorage.setItem(CACHE, JSON.stringify(a)); }catch(e){} }
   function cacheGet(){
-    try{ var a = JSON.parse(localStorage.getItem(CACHE_KEY)); if(Array.isArray(a) && a.length) return a; }catch(e){}
+    try{ var a = JSON.parse(localStorage.getItem(CACHE)); if(Array.isArray(a) && a.length) return a; }catch(e){}
     return null;
   }
-  function cacheSet(a){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(a)); }catch(e){} }
-
   function loadWords(){
     if(!SHEET_URL){
-      words = SAMPLE; setStatus('尚未設定雲端題庫，目前使用範例單字。'); startQuiz(); return;
+      words = SAMPLE; setStatus('尚未設定雲端題庫，目前使用範例單字。'); renderSetup(); return;
     }
     $('quiz').appendChild(el('p','msg','題庫載入中…'));
     var sep = SHEET_URL.indexOf('?') > -1 ? '&' : '?';
@@ -125,21 +176,116 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
         words = toWords(parseCSV(t));
         if(words.length) cacheSet(words);
         setStatus('題庫共 ' + words.length + ' 個單字');
-        startQuiz();
+        renderSetup();
       })
       .catch(function(){
         var c = cacheGet();
         if(c){ words = c; setStatus('無法連上雲端，使用上次載入的題庫（' + c.length + ' 個單字）'); }
         else { words = SAMPLE; setStatus('無法連上雲端題庫，目前使用範例單字。'); }
-        startQuiz();
+        renderSetup();
       });
   }
-  function setStatus(t){ $('status').textContent = t; }
+
+  /* ---------- 設定畫面 ---------- */
+  function chip(type, name, value, text, checked, onchange){
+    var l = el('label','chip');
+    var i = document.createElement('input');
+    i.type = type; i.name = name; i.value = value; i.checked = !!checked;
+    i.onchange = onchange;
+    l.appendChild(i); l.appendChild(el('span',null,text));
+    return l;
+  }
+  function field(title){ var f = el('div','field'); f.appendChild(el('b',null,title)); return f; }
+
+  function renderSetup(){
+    quiz = null;
+    var box = $('quiz'); box.textContent = '';
+    var p = el('div','panel'); box.appendChild(p);
+    if(!words.length){ p.appendChild(el('p','msg','題庫是空的，請老師先到試算表新增單字。')); return; }
+
+    var books = uniq(words.map(function(w){ return w.book; }));
+    if(books.indexOf(cfg.book) < 0){ cfg.book = books[0]; cfg.lessons = []; }
+    var info = el('p','hint'), start = el('button','primary full','開始練習');
+
+    function pool(){ return words.filter(function(w){ return w.book===cfg.book && cfg.lessons.indexOf(w.lesson)>=0; }); }
+    function update(){
+      var n = pool().length;
+      info.textContent = '符合條件的單字：' + n + ' 個';
+      start.disabled = !n;
+    }
+
+    /* 教材 */
+    var f1 = field('教材');
+    var sel = document.createElement('select');
+    books.forEach(function(b){ var o = el('option',null,b); o.value = b; sel.appendChild(o); });
+    sel.value = cfg.book;
+    f1.appendChild(sel); p.appendChild(f1);
+
+    /* 課次 */
+    var f2 = field('課次（可複選）'), lbox = el('div','chips');
+    f2.appendChild(lbox);
+    var all = el('button','ghost','全選'); all.type = 'button';
+    f2.appendChild(all); p.appendChild(f2);
+    function drawLessons(){
+      lbox.textContent = '';
+      var ls = uniq(words.filter(function(w){ return w.book===cfg.book; }).map(function(w){ return w.lesson; }));
+      cfg.lessons = cfg.lessons.filter(function(l){ return ls.indexOf(l) >= 0; });
+      if(!cfg.lessons.length) cfg.lessons = ls.slice();
+      ls.forEach(function(l){
+        lbox.appendChild(chip('checkbox','lesson',l,l,cfg.lessons.indexOf(l)>=0,function(e){
+          if(e.target.checked) cfg.lessons.push(l);
+          else cfg.lessons = cfg.lessons.filter(function(x){ return x !== l; });
+          update();
+        }));
+      });
+      all.onclick = function(){ cfg.lessons = ls.slice(); drawLessons(); update(); };
+    }
+    sel.onchange = function(){ cfg.book = sel.value; cfg.lessons = []; drawLessons(); update(); };
+    drawLessons();
+
+    /* 題型 */
+    var f3 = field('題型'), c3 = el('div','chips');
+    [['choice','選擇題'],['spell','拼寫題'],['mix','混合']].forEach(function(m){
+      c3.appendChild(chip('radio','mode',m[0],m[1],cfg.mode===m[0],function(){ cfg.mode = m[0]; }));
+    });
+    f3.appendChild(c3); p.appendChild(f3);
+
+    /* 題數 */
+    var f4 = field('題數'), c4 = el('div','chips');
+    [['all','全部'],['10','10 題'],['20','20 題'],['custom','自訂']].forEach(function(m){
+      c4.appendChild(chip('radio','count',m[0],m[1],cfg.count===m[0],function(){ cfg.count = m[0]; }));
+    });
+    var num = document.createElement('input');
+    num.type = 'number'; num.min = 1; num.value = cfg.custom; num.setAttribute('aria-label','自訂題數');
+    num.oninput = function(){ cfg.custom = parseInt(num.value,10) || 10; cfg.count = 'custom'; c4.querySelector('input[value=custom]').checked = true; };
+    c4.appendChild(num);
+    f4.appendChild(c4); f4.appendChild(info); p.appendChild(f4);
+
+    /* 朗讀 */
+    if(HAS_TTS){
+      var f5 = el('div','field'), c5 = el('div','chips');
+      c5.appendChild(chip('checkbox','auto','1','選擇題自動朗讀單字',cfg.auto,function(e){ cfg.auto = e.target.checked; }));
+      f5.appendChild(c5); p.appendChild(f5);
+    }
+
+    start.onclick = function(){
+      try{ localStorage.setItem(PREF, JSON.stringify(cfg)); }catch(e){}
+      var n = pool().length;
+      if(cfg.count !== 'all') n = Math.min(n, cfg.count==='custom' ? Math.max(1,cfg.custom) : parseInt(cfg.count,10));
+      begin(shuffle(pool()).slice(0, n));
+    };
+    p.appendChild(start);
+    update();
+  }
 
   /* ---------- 測驗 ---------- */
-  function startQuiz(){
-    if(words.length < 4){ quiz = null; renderQuiz(); return; }
-    quiz = {queue: shuffle(words), i:0, score:0, wrong:[], answered:false};
+  function begin(list){
+    var canChoice = uniq(words.map(function(w){ return w.zh; })).length >= 4;
+    quiz = {list:list, i:0, score:0, wrong:[], types:list.map(function(){
+      if(!canChoice || cfg.mode==='spell') return 'spell';
+      if(cfg.mode==='choice') return 'choice';
+      return Math.random() < 0.5 ? 'choice' : 'spell';
+    })};
     renderQuiz();
   }
   function makeOptions(word){
@@ -150,64 +296,109 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
     }
     return shuffle(picks.concat([word.zh]));
   }
+
   function renderQuiz(){
-    var box = $('quiz');
-    box.textContent = '';
-    var panel = el('div','panel');
-    box.appendChild(panel);
+    var box = $('quiz'); box.textContent = '';
+    var p = el('div','panel'); box.appendChild(p);
+    if(quiz.i >= quiz.list.length){ renderEnd(p); return; }
 
-    if(!quiz){
-      panel.appendChild(el('p','msg','題庫至少需要 4 個不同的單字才能出題，請老師先到試算表新增。'));
-      return;
-    }
-    if(quiz.i >= quiz.queue.length){
-      panel.appendChild(el('p','msg','測驗完成'));
-      panel.appendChild(el('div','score', quiz.score + ' / ' + quiz.queue.length));
-      if(quiz.wrong.length){
-        panel.appendChild(el('p','msg','答錯的單字：'));
-        var ul = el('ul','wrong-list');
-        quiz.wrong.forEach(function(w){ ul.appendChild(el('li',null,w.en + '：' + w.zh)); });
-        panel.appendChild(ul);
-      }
-      var again = el('button','primary next','再測一次');
-      again.onclick = startQuiz;
-      panel.appendChild(again);
-      return;
-    }
-
-    var cur = quiz.queue[quiz.i];
+    var cur = quiz.list[quiz.i], type = quiz.types[quiz.i];
+    var last = quiz.i === quiz.list.length - 1;
     var prog = el('div','progress');
-    prog.appendChild(el('span',null,'第 ' + (quiz.i+1) + ' 題，共 ' + quiz.queue.length + ' 題'));
+    prog.appendChild(el('span',null,'第 ' + (quiz.i+1) + ' 題，共 ' + quiz.list.length + ' 題'));
     prog.appendChild(el('span',null,'答對 ' + quiz.score));
-    panel.appendChild(prog);
-    var bar = el('div','bar'); var fill = document.createElement('i');
-    fill.style.width = (quiz.i / quiz.queue.length * 100) + '%';
-    bar.appendChild(fill); panel.appendChild(bar);
+    p.appendChild(prog);
+    var bar = el('div','bar'), fill = document.createElement('i');
+    fill.style.width = (quiz.i / quiz.list.length * 100) + '%';
+    bar.appendChild(fill); p.appendChild(bar);
+    p.appendChild(el('div','tag', cur.book + '・' + cur.lesson));
 
-    panel.appendChild(el('div','word',cur.en));
-    var opts = el('div','options');
-    var next = el('button','primary next', quiz.i === quiz.queue.length-1 ? '看結果' : '下一題');
+    var next = el('button','primary full', last ? '看結果' : '下一題');
     next.hidden = true;
-    quiz.answered = false;
-
-    makeOptions(cur).forEach(function(text){
-      var b = el('button','opt',text);
-      b.onclick = function(){
-        if(quiz.answered) return;
-        quiz.answered = true;
-        if(text === cur.zh) quiz.score++; else quiz.wrong.push(cur);
-        Array.prototype.forEach.call(opts.children, function(o){
-          o.disabled = true;
-          if(o.textContent === cur.zh) o.classList.add('ok');
-          else if(o === b) o.classList.add('bad');
-        });
-        next.hidden = false; next.focus();
-      };
-      opts.appendChild(b);
-    });
-    panel.appendChild(opts);
     next.onclick = function(){ quiz.i++; renderQuiz(); };
-    panel.appendChild(next);
+    var answered = false;
+    function finish(ok){
+      answered = true;
+      if(ok) quiz.score++; else quiz.wrong.push(cur);
+      next.hidden = false; next.focus();
+    }
+
+    if(type === 'choice'){
+      var row = el('div','wordrow');
+      row.appendChild(el('div','word',cur.en));
+      if(HAS_TTS) row.appendChild(speakBtn(cur.en));
+      p.appendChild(row);
+      var opts = el('div','options');
+      makeOptions(cur).forEach(function(text){
+        var b = el('button','opt',text);
+        b.onclick = function(){
+          if(answered) return;
+          Array.prototype.forEach.call(opts.children, function(o){
+            o.disabled = true;
+            if(o.textContent === cur.zh) o.classList.add('ok');
+            else if(o === b) o.classList.add('bad');
+          });
+          finish(text === cur.zh);
+        };
+        opts.appendChild(b);
+      });
+      p.appendChild(opts);
+      if(cfg.auto) speak(cur.en);
+    }else{
+      p.appendChild(el('p','hint msg','請拼出這個中文的英文單字'));
+      p.appendChild(el('div','zhq',cur.zh));
+      p.appendChild(el('div','blanks', cur.en.split('').map(function(c){ return /[a-z]/i.test(c) ? '_' : c; }).join(' ')));
+      if(HAS_TTS){ var r = el('div','wordrow'); r.appendChild(speakBtn(cur.en)); p.appendChild(r); }
+      var form = el('div','spell');
+      var inp = document.createElement('input');
+      inp.type = 'text'; inp.setAttribute('aria-label','輸入英文');
+      inp.autocomplete = 'off'; inp.autocapitalize = 'none'; inp.spellcheck = false;
+      inp.setAttribute('autocorrect','off');
+      var go = el('button','primary','送出');
+      var fb = el('div','fb'); fb.setAttribute('role','status');
+      function submit(){
+        if(answered) return;
+        var v = norm(inp.value); if(!v) return;
+        var accept = words.filter(function(w){ return norm(w.zh) === norm(cur.zh); }).map(function(w){ return norm(w.en); });
+        var ok = accept.indexOf(v) >= 0;
+        inp.disabled = true; go.disabled = true;
+        fb.className = 'fb ' + (ok ? 'ok' : 'bad');
+        fb.textContent = ok ? '答對了！' : '正確答案：' + cur.en;
+        if(cfg.auto) speak(cur.en);
+        finish(ok);
+      }
+      go.onclick = submit;
+      inp.onkeydown = function(e){ if(e.key === 'Enter') submit(); };
+      form.appendChild(inp); form.appendChild(go);
+      p.appendChild(form); p.appendChild(fb);
+      setTimeout(function(){ inp.focus(); }, 0);
+    }
+    p.appendChild(next);
+    var quit = el('button','ghost full','結束練習'); quit.onclick = renderSetup;
+    p.appendChild(quit);
+  }
+
+  function renderEnd(p){
+    p.appendChild(el('p','msg','練習完成'));
+    p.appendChild(el('div','score', quiz.score + ' / ' + quiz.list.length));
+    if(quiz.wrong.length){
+      p.appendChild(el('p','msg','答錯的單字：'));
+      var ul = el('ul','wrong-list');
+      quiz.wrong.forEach(function(w){ ul.appendChild(el('li',null,w.en + '：' + w.zh + '（' + w.lesson + '）')); });
+      p.appendChild(ul);
+      var rev = el('button','primary full','只複習答錯的');
+      rev.onclick = function(){ begin(shuffle(quiz.wrong)); };
+      p.appendChild(rev);
+    }
+    var again = el('button', quiz.wrong.length ? 'ghost full' : 'primary full', '再練一次');
+    again.onclick = function(){
+      var n = quiz.list.length;
+      var pool = words.filter(function(w){ return w.book===cfg.book && cfg.lessons.indexOf(w.lesson)>=0; });
+      begin(shuffle(pool).slice(0, n));
+    };
+    p.appendChild(again);
+    var back = el('button','ghost full','回到設定'); back.onclick = renderSetup;
+    p.appendChild(back);
   }
 
   loadWords();
