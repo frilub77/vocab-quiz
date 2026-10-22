@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>單字測驗</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef2f5; --surface:#ffffff; --ink:#14232e; --muted:#5d6e7a; --line:#cfd9e0;
+  --accent:#0b6e83; --accent-ink:#ffffff; --ok:#17794a; --ok-bg:#dff3e8; --bad:#b3261e; --bad-bg:#fbe3e1;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --display:"Space Grotesk","Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1a21; --surface:#18262f; --ink:#e6eef3; --muted:#93a5b1; --line:#2c3f4b;
+    --accent:#4fc3d9; --accent-ink:#06222a; --ok:#6fd8a2; --ok-bg:#183a2a; --bad:#ff8f86; --bad-bg:#43211f;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;min-height:100vh}
+main{max-width:640px;margin:0 auto;padding:24px 16px 64px}
+h1{font:700 1.25rem var(--sans);margin:0 0 16px}
+nav{display:flex;gap:8px;margin-bottom:20px}
+nav button{flex:1;padding:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 1rem var(--sans);border-radius:8px;cursor:pointer}
+nav button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+section[hidden]{display:none}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+.progress{display:flex;justify-content:space-between;color:var(--muted);font-size:.9rem;margin-bottom:8px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:24px}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
+.word{font:700 clamp(2.4rem,11vw,3.8rem) var(--display);letter-spacing:-.02em;text-align:center;margin:8px 0 28px;word-break:break-word}
+.options{display:grid;gap:10px}
+.opt{padding:14px 16px;text-align:left;border:2px solid var(--line);background:var(--surface);color:var(--ink);font:500 1.1rem var(--sans);border-radius:10px;cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.opt.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+.opt:disabled{cursor:default}
+.primary{padding:12px 20px;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:700 1rem var(--sans);cursor:pointer}
+.ghost{padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font:500 .9rem var(--sans);cursor:pointer}
+.next{margin-top:18px;width:100%}
+.msg{color:var(--muted);text-align:center;padding:12px 0}
+.score{font:700 3rem var(--display);text-align:center}
+label{display:block;font-weight:500;margin:12px 0 4px}
+input,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:400 1rem var(--sans)}
+textarea{min-height:110px;resize:vertical}
+.row{display:flex;gap:10px}.row>div{flex:1}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.hint{color:var(--muted);font-size:.85rem;margin:6px 0 0}
+ul.list{list-style:none;margin:0;padding:0}
+ul.list li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+ul.list li:last-child{border-bottom:0}
+ul.list .en{font:700 1rem var(--display);min-width:35%}
+ul.list .zh{flex:1;color:var(--muted)}
+.wrong-list{margin:12px 0 0;padding-left:20px}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>單字測驗</h1>
+  <nav role="tablist">
+    <button role="tab" id="tab-quiz" aria-selected="true">測驗</button>
+    <button role="tab" id="tab-bank" aria-selected="false">題庫</button>
+  </nav>
+
+  <!-- 測驗 -->
+  <section id="quiz"></section>
+
+  <!-- 題庫 -->
+  <section id="bank" hidden>
+    <div class="panel">
+      <strong>新增單字</strong>
+      <div class="row">
+        <div><label for="en">英文</label><input id="en" autocomplete="off" autocapitalize="none"></div>
+        <div><label for="zh">中文翻譯</label><input id="zh" autocomplete="off"></div>
+      </div>
+      <div class="tools"><button class="primary" id="add">新增</button></div>
+      <p class="hint" id="addMsg" role="status"></p>
+    </div>
+
+    <div class="panel">
+      <strong>批次新增</strong>
+      <label for="bulk">每行一個單字，格式：英文,中文</label>
+      <textarea id="bulk" placeholder="apple,蘋果&#10;library,圖書館&#10;borrow,借（入）"></textarea>
+      <div class="tools"><button class="primary" id="bulkAdd">批次新增</button></div>
+      <p class="hint" id="bulkMsg" role="status"></p>
+    </div>
+
+    <div class="panel">
+      <strong>目前題庫（<span id="count">0</span> 個）</strong>
+      <ul class="list" id="list"></ul>
+      <div class="tools">
+        <button class="ghost" id="export">匯出 JSON</button>
+        <button class="ghost" id="importBtn">匯入 JSON</button>
+        <button class="ghost" id="clear">清空題庫</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <p class="hint">資料儲存在這個瀏覽器中。換電腦或清除瀏覽器資料前，請先匯出備份。</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var KEY = 'vocab-quiz-words-v1';
+  var SAMPLE = [
+    {en:'apple',zh:'蘋果'},{en:'library',zh:'圖書館'},{en:'borrow',zh:'借（入）'},
+    {en:'journey',zh:'旅程'},{en:'careful',zh:'小心的'},{en:'improve',zh:'改善'},
+    {en:'weather',zh:'天氣'},{en:'knowledge',zh:'知識'}
+  ];
+  var words = load();
+  var quiz = null;
+  var $ = function(id){ return document.getElementById(id); };
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){ var a = JSON.parse(raw); if(Array.isArray(a)) return a; }
+    }catch(e){}
+    return SAMPLE.slice();
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(words)); }catch(e){}
+  }
+  function shuffle(a){
+    a = a.slice();
+    for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; }
+    return a;
+  }
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if(cls) e.className = cls;
+    if(text!=null) e.textContent = text;
+    return e;
+  }
+
+  /* ---------- 分頁 ---------- */
+  function showTab(name){
+    $('quiz').hidden = name!=='quiz';
+    $('bank').hidden = name!=='bank';
+    $('tab-quiz').setAttribute('aria-selected', name==='quiz');
+    $('tab-bank').setAttribute('aria-selected', name==='bank');
+    if(name==='quiz') startQuiz();
+  }
+  $('tab-quiz').onclick = function(){ showTab('quiz'); };
+  $('tab-bank').onclick = function(){ showTab('bank'); };
+
+  /* ---------- 測驗 ---------- */
+  function startQuiz(){
+    if(words.length < 4){ quiz = null; renderQuiz(); return; }
+    quiz = {queue: shuffle(words), i:0, score:0, wrong:[], answered:false};
+    renderQuiz();
+  }
+  function makeOptions(word){
+    var others = shuffle(words.filter(function(w){ return w.zh !== word.zh; }));
+    var picks = [], seen = {};
+    for(var k=0;k<others.length && picks.length<3;k++){
+      if(!seen[others[k].zh]){ seen[others[k].zh]=1; picks.push(others[k].zh); }
+    }
+    return shuffle(picks.concat([word.zh]));
+  }
+  function renderQuiz(){
+    var box = $('quiz');
+    box.textContent = '';
+    var panel = el('div','panel');
+    box.appendChild(panel);
+
+    if(!quiz){
+      panel.appendChild(el('p','msg','題庫至少需要 4 個不同的單字才能出題。請先到「題庫」新增單字。'));
+      return;
+    }
+    if(quiz.i >= quiz.queue.length){
+      panel.appendChild(el('p','msg','測驗完成'));
+      panel.appendChild(el('div','score', quiz.score + ' / ' + quiz.queue.length));
+      if(quiz.wrong.length){
+        panel.appendChild(el('p','msg','答錯的單字：'));
+        var ul = el('ul','wrong-list');
+        quiz.wrong.forEach(function(w){ ul.appendChild(el('li',null,w.en + '：' + w.zh)); });
+        panel.appendChild(ul);
+      }
+      var again = el('button','primary next','再測一次');
+      again.onclick = startQuiz;
+      panel.appendChild(again);
+      return;
+    }
+
+    var cur = quiz.queue[quiz.i];
+    var prog = el('div','progress');
+    prog.appendChild(el('span',null,'第 ' + (quiz.i+1) + ' 題，共 ' + quiz.queue.length + ' 題'));
+    prog.appendChild(el('span',null,'答對 ' + quiz.score));
+    panel.appendChild(prog);
+    var bar = el('div','bar'); var fill = document.createElement('i');
+    fill.style.width = (quiz.i / quiz.queue.length * 100) + '%';
+    bar.appendChild(fill); panel.appendChild(bar);
+
+    panel.appendChild(el('div','word',cur.en));
+    var opts = el('div','options');
+    var next = el('button','primary next', quiz.i === quiz.queue.length-1 ? '看結果' : '下一題');
+    next.hidden = true;
+    quiz.answered = false;
+
+    makeOptions(cur).forEach(function(text){
+      var b = el('button','opt',text);
+      b.onclick = function(){
+        if(quiz.answered) return;
+        quiz.answered = true;
+        var correct = text === cur.zh;
+        if(correct) quiz.score++; else quiz.wrong.push(cur);
+        Array.prototype.forEach.call(opts.children, function(o){
+          o.disabled = true;
+          if(o.textContent === cur.zh) o.classList.add('ok');
+          else if(o === b) o.classList.add('bad');
+        });
+        next.hidden = false; next.focus();
+      };
+      opts.appendChild(b);
+    });
+    panel.appendChild(opts);
+    next.onclick = function(){ quiz.i++; renderQuiz(); };
+    panel.appendChild(next);
+  }
+
+  /* ---------- 題庫 ---------- */
+  function upsert(en, zh){
+    en = en.trim(); zh = zh.trim();
+    if(!en || !zh) return false;
+    var hit = words.filter(function(w){ return w.en.toLowerCase() === en.toLowerCase(); })[0];
+    if(hit) hit.zh = zh; else words.push({en:en, zh:zh});
+    return true;
+  }
+  function renderList(){
+    $('count').textContent = words.length;
+    var ul = $('list'); ul.textContent = '';
+    if(!words.length){ ul.appendChild(el('li','msg','還沒有單字，請從上方新增。')); return; }
+    words.forEach(function(w, idx){
+      var li = el('li');
+      li.appendChild(el('span','en',w.en));
+      li.appendChild(el('span','zh',w.zh));
+      var del = el('button','ghost','刪除');
+      del.setAttribute('aria-label','刪除 ' + w.en);
+      del.onclick = function(){ words.splice(idx,1); save(); renderList(); };
+      li.appendChild(del);
+      ul.appendChild(li);
+    });
+  }
+
+  $('add').onclick = function(){
+    if(upsert($('en').value, $('zh').value)){
+      save(); renderList();
+      $('addMsg').textContent = '已新增「' + $('en').value.trim() + '」。';
+      $('en').value = ''; $('zh').value = ''; $('en').focus();
+    }else{
+      $('addMsg').textContent = '英文和中文都要填寫。';
+    }
+  };
+  $('zh').addEventListener('keydown', function(e){ if(e.key==='Enter') $('add').click(); });
+
+  $('bulkAdd').onclick = function(){
+    var ok = 0, bad = 0;
+    $('bulk').value.split(/\r?\n/).forEach(function(line){
+      line = line.trim(); if(!line) return;
+      var m = line.match(/^(.+?)\s*[,，\t]\s*(.+)$/);
+      if(m && upsert(m[1], m[2])) ok++; else bad++;
+    });
+    save(); renderList();
+    $('bulkMsg').textContent = '新增 ' + ok + ' 個' + (bad ? '，' + bad + ' 行格式不正確已略過' : '') + '。';
+    if(ok) $('bulk').value = '';
+  };
+
+  $('export').onclick = function(){
+    var blob = new Blob([JSON.stringify(words, null, 2)], {type:'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'vocab.json';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+  $('importBtn').onclick = function(){ $('importFile').click(); };
+  $('importFile').onchange = function(e){
+    var f = e.target.files[0]; if(!f) return;
+    var r = new FileReader();
+    r.onload = function(){
+      try{
+        var a = JSON.parse(r.result), n = 0;
+        a.forEach(function(w){ if(w && upsert(String(w.en||''), String(w.zh||''))) n++; });
+        save(); renderList();
+        alert('已匯入 ' + n + ' 個單字。');
+      }catch(err){ alert('檔案格式不正確，請選擇由本工具匯出的 JSON。'); }
+    };
+    r.readAsText(f); e.target.value = '';
+  };
+  $('clear').onclick = function(){
+    if(confirm('確定要清空整個題庫嗎？此動作無法復原。')){ words = []; save(); renderList(); }
+  };
+
+  renderList();
+  startQuiz();
+})();
+</script>
+</body>
+</html>
