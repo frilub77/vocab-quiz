@@ -10,14 +10,14 @@
 <style>
 :root{
   --bg:#eef2f5; --surface:#ffffff; --ink:#14232e; --muted:#5d6e7a; --line:#cfd9e0;
-  --accent:#0b6e83; --accent-ink:#ffffff; --ok:#17794a; --ok-bg:#dff3e8; --bad:#b3261e; --bad-bg:#fbe3e1;
+  --accent:#0b6e83; --accent-ink:#ffffff; --warn:#b45309; --ok:#17794a; --ok-bg:#dff3e8; --bad:#b3261e; --bad-bg:#fbe3e1;
   --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --display:"Space Grotesk","Helvetica Neue",Arial,sans-serif;
 }
 @media (prefers-color-scheme:dark){
   :root{
     --bg:#0f1a21; --surface:#18262f; --ink:#e6eef3; --muted:#93a5b1; --line:#2c3f4b;
-    --accent:#4fc3d9; --accent-ink:#06222a; --ok:#6fd8a2; --ok-bg:#183a2a; --bad:#ff8f86; --bad-bg:#43211f;
+    --accent:#4fc3d9; --accent-ink:#06222a; --warn:#fbbf24; --ok:#6fd8a2; --ok-bg:#183a2a; --bad:#ff8f86; --bad-bg:#43211f;
   }
 }
 *{box-sizing:border-box}
@@ -75,6 +75,7 @@ input[type=number]{width:80px}
 .wrong-list{margin:12px 0 0;padding-left:20px}
 .hint{color:var(--muted);font-size:.85rem;margin:6px 0 0}
 .status{color:var(--muted);font-size:.8rem;text-align:center;margin-top:14px}
+.note{color:var(--warn);font-size:1.05rem;font-weight:700;text-align:center;margin-top:18px;padding:10px 12px;border:2px solid var(--warn);border-radius:10px}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
 </style>
 </head>
@@ -83,6 +84,7 @@ input[type=number]{width:80px}
   <h1>英文強強滾</h1>
   <section id="quiz"></section>
   <p class="status" id="status" role="status"></p>
+  <p class="note">⚠️ 錯題本只存在這個裝置，沒有存到雲端。換手機或清除資料，就會消失喔！</p>
 </main>
 
 <script>
@@ -104,11 +106,39 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
     {kind:'cloze',en:'be ______ on V-ing',zh:'熱衷於…',book:'範例教材',lesson:'第二課',ans:[['keen']]}
   ];
   var words = [], clozes = [], quiz = null;
-  var cfg = {kind:'word', book:'', lessons:[], mode:'choice', count:'all', custom:10, auto:false};
+  var cfg = {kind:'word', book:'', lessons:[], mode:'choice', count:'all', custom:10, auto:false, scope:'all'};
   var $ = function(id){ return document.getElementById(id); };
   var HAS_TTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
 
   try{ var sp = JSON.parse(localStorage.getItem(PREF)); if(sp) for(var k in sp) cfg[k] = sp[k]; }catch(e){}
+
+  /* ---------- 錯題本：答錯就記錄，之後連續答對 2 次才移出 ---------- */
+  var MKEY = 'vocab-quiz-mistakes-v1', mistakes = {};
+  try{ mistakes = JSON.parse(localStorage.getItem(MKEY)) || {}; }catch(e){}
+  function saveMistakes(){ try{ localStorage.setItem(MKEY, JSON.stringify(mistakes)); }catch(e){} }
+  function itemId(it){ return [it.kind, it.en.toLowerCase(), it.book, it.lesson].join('|'); }
+  function inBook(it){ return !!mistakes[itemId(it)]; }
+  function record(it, ok){
+    var id = itemId(it), m = mistakes[id];
+    if(!ok) mistakes[id] = {n:(m ? m.n : 0) + 1, s:0};
+    else if(m){ m.s++; if(m.s >= 2) delete mistakes[id]; }
+    saveMistakes();
+  }
+  function pool(){
+    if(cfg.scope === 'book') return src().filter(inBook);
+    return src().filter(function(w){ return w.book===cfg.book && cfg.lessons.indexOf(w.lesson)>=0; });
+  }
+  function pick(pl, n){
+    var s = shuffle(pl);
+    if(cfg.scope === 'all' && n < pl.length){
+      var wr = s.filter(inBook), ot = s.filter(function(x){ return !inBook(x); });
+      var m = Math.min(wr.length, Math.ceil(n * 0.3));
+      var c = wr.slice(0, m).concat(ot.slice(0, n - m));
+      if(c.length < n) c = c.concat(wr.slice(m, m + n - c.length));
+      s = shuffle(c);
+    }
+    return s.slice(0, n);
+  }
 
   function shuffle(a){
     a = a.slice();
@@ -250,17 +280,37 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
       f0.appendChild(c0); p.appendChild(f0);
     }
 
+    /* 題目範圍 */
+    var nBook = src().filter(inBook).length;
+    if(cfg.scope === 'book' && !nBook) cfg.scope = 'all';
+    var f00 = field('題目範圍'), c00 = el('div','chips');
+    [['all','全部題目'],['book','錯題本（' + nBook + ' 題）']].forEach(function(m){
+      var ch = chip('radio','scope',m[0],m[1],cfg.scope===m[0],function(){ cfg.scope = m[0]; renderSetup(); });
+      if(m[0] === 'book' && !nBook) ch.querySelector('input').disabled = true;
+      c00.appendChild(ch);
+    });
+    f00.appendChild(c00);
+    f00.appendChild(el('p','hint','答錯的題目會自動記進錯題本，之後連續答對 2 次就會移出。從「全部題目」抽題時，也會自動多放入一些錯題。'));
+    if(nBook){
+      var clr = el('button','ghost','清空錯題本'); clr.style.marginTop = '8px';
+      clr.onclick = function(){
+        if(confirm('確定要清空整個錯題本嗎？')){ mistakes = {}; saveMistakes(); renderSetup(); }
+      };
+      f00.appendChild(clr);
+    }
+    p.appendChild(f00);
+
     var books = uniq(src().map(function(w){ return w.book; }));
     if(books.indexOf(cfg.book) < 0){ cfg.book = books[0]; cfg.lessons = []; }
     var info = el('p','hint'), start = el('button','primary full','開始練習');
 
-    function pool(){ return src().filter(function(w){ return w.book===cfg.book && cfg.lessons.indexOf(w.lesson)>=0; }); }
     function update(){
       var n = pool().length;
       info.textContent = '符合條件的題目：' + n + ' 題';
       start.disabled = !n;
     }
 
+    if(cfg.scope !== 'book'){
     /* 教材 */
     var f1 = field('教材');
     var sel = document.createElement('select');
@@ -290,6 +340,7 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
     }
     sel.onchange = function(){ cfg.book = sel.value; cfg.lessons = []; drawLessons(); update(); };
     drawLessons();
+    }
 
     /* 題型 */
     var f3 = field('題型'), c3 = el('div','chips');
@@ -320,7 +371,7 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
       try{ localStorage.setItem(PREF, JSON.stringify(cfg)); }catch(e){}
       var n = pool().length;
       if(cfg.count !== 'all') n = Math.min(n, cfg.count==='custom' ? Math.max(1,cfg.custom) : parseInt(cfg.count,10));
-      begin(shuffle(pool()).slice(0, n));
+      begin(pick(pool(), n));
     };
     p.appendChild(start);
     update();
@@ -329,7 +380,7 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
   /* ---------- 測驗 ---------- */
   function begin(list){
     var canChoice = uniq(words.map(function(w){ return w.zh; })).length >= 4;
-    quiz = {list:list, i:0, score:0, wrong:[], types:list.map(function(it){
+    quiz = {list:list, i:0, n:0, score:0, wrong:[], ended:false, types:list.map(function(it){
       if(cfg.mode==='spell') return 'spell';
       if(it.kind==='word' && !canChoice) return 'spell';
       if(cfg.mode==='choice') return 'choice';
@@ -362,7 +413,7 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
   function renderQuiz(){
     var box = $('quiz'); box.textContent = '';
     var p = el('div','panel'); box.appendChild(p);
-    if(quiz.i >= quiz.list.length){ renderEnd(p); return; }
+    if(quiz.ended || quiz.i >= quiz.list.length){ renderEnd(p); return; }
 
     var cur = quiz.list[quiz.i], type = quiz.types[quiz.i];
     var last = quiz.i === quiz.list.length - 1;
@@ -381,6 +432,7 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
     var answered = false;
     function finish(ok){
       answered = true;
+      quiz.n++; record(cur, ok);
       if(ok) quiz.score++; else quiz.wrong.push(cur);
       next.hidden = false; next.focus();
     }
@@ -437,7 +489,11 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
       setTimeout(function(){ inp.focus(); }, 0);
     }
     p.appendChild(next);
-    var quit = el('button','ghost full','結束練習'); quit.onclick = renderSetup;
+    var quit = el('button','ghost full','中途結算，看目前結果');
+    quit.onclick = function(){
+      if(!quiz.n){ renderSetup(); return; }
+      quiz.ended = true; renderQuiz();
+    };
     p.appendChild(quit);
   }
 
@@ -533,10 +589,11 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
   }
 
   function renderEnd(p){
-    p.appendChild(el('p','msg','練習完成'));
-    p.appendChild(el('div','score', quiz.score + ' / ' + quiz.list.length));
+    var total = quiz.list.length, done = quiz.n, partial = done < total;
+    p.appendChild(el('p','msg', partial ? '目前進度：已作答 ' + done + ' 題（共 ' + total + ' 題）' : '練習完成'));
+    p.appendChild(el('div','score', quiz.score + ' / ' + done));
     if(quiz.wrong.length){
-      p.appendChild(el('p','msg','答錯的題目：'));
+      p.appendChild(el('p','msg','答錯的題目（已自動記進錯題本）：'));
       var ul = el('ul','wrong-list');
       quiz.wrong.forEach(function(w){
         var line = w.kind === 'cloze'
@@ -545,17 +602,22 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
         ul.appendChild(el('li',null,line + '：' + w.zh + '（' + w.lesson + '）'));
       });
       p.appendChild(ul);
-      var rev = el('button','primary full','只複習答錯的');
+    }
+    if(partial){
+      var go = el('button','primary full','繼續剩下的 ' + (total - done) + ' 題');
+      go.onclick = function(){ quiz.ended = false; quiz.i = quiz.n; renderQuiz(); };
+      p.appendChild(go);
+    }
+    if(quiz.wrong.length){
+      var rev = el('button', partial ? 'ghost full' : 'primary full', '只複習答錯的');
       rev.onclick = function(){ begin(shuffle(quiz.wrong)); };
       p.appendChild(rev);
     }
-    var again = el('button', quiz.wrong.length ? 'ghost full' : 'primary full', '再練一次');
-    again.onclick = function(){
-      var n = quiz.list.length;
-      var pool = src().filter(function(w){ return w.book===cfg.book && cfg.lessons.indexOf(w.lesson)>=0; });
-      begin(shuffle(pool).slice(0, n));
-    };
-    p.appendChild(again);
+    if(!partial){
+      var again = el('button', quiz.wrong.length ? 'ghost full' : 'primary full', '再練一次');
+      again.onclick = function(){ begin(pick(pool(), quiz.list.length)); };
+      p.appendChild(again);
+    }
     var back = el('button','ghost full','回到設定'); back.onclick = renderSetup;
     p.appendChild(back);
   }
