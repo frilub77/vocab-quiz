@@ -84,7 +84,7 @@ input[type=number]{width:80px}
   <h1>英文強強滾</h1>
   <section id="quiz"></section>
   <p class="status" id="status" role="status"></p>
-  <p class="note">⚠️ 錯題本只存在此裝置，沒有存到雲端。換手機或清資料，會消失喔！</p>
+  <p class="note">⚠️ 錯題本只存在這個裝置，沒有存到雲端。換手機或清除資料，就會消失喔！</p>
 </main>
 
 <script>
@@ -318,28 +318,71 @@ var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwrP9-ziyZfvuB
     sel.value = cfg.book;
     f1.appendChild(sel); p.appendChild(f1);
 
-    /* 課次 */
-    var f2 = field('課次（可複選）'), lbox = el('div','chips');
-    f2.appendChild(lbox);
-    var all = el('button','ghost','全選'); all.type = 'button';
-    all.style.marginTop = '8px';
-    f2.appendChild(all); p.appendChild(f2);
-    function drawLessons(){
-      lbox.textContent = '';
-      var ls = uniq(src().filter(function(w){ return w.book===cfg.book; }).map(function(w){ return w.lesson; }));
+    /* 課次：最新 20 個直接顯示，較早的用搜尋或下拉選單挑選 */
+    var RECENT = 20, oldQuery = '';
+    var f2 = field('課次（可複選）'), lbox = el('div','chips'), older = el('div');
+    var tools = el('div','chips'); tools.style.marginTop = '10px';
+    var all = el('button','ghost','全選'), none = el('button','ghost','全不選');
+    all.type = 'button'; none.type = 'button';
+    tools.appendChild(all); tools.appendChild(none);
+    f2.appendChild(lbox); f2.appendChild(older); f2.appendChild(tools); p.appendChild(f2);
+
+    function lessonsOf(){
+      return uniq(src().filter(function(w){ return w.book===cfg.book; }).map(function(w){ return w.lesson; }));
+    }
+    function drawLessons(init){
+      var ls = lessonsOf();                       /* 依試算表順序，越下面越新 */
+      var recent = ls.slice(-RECENT), old = ls.slice(0, -RECENT).reverse();
       cfg.lessons = cfg.lessons.filter(function(l){ return ls.indexOf(l) >= 0; });
-      if(!cfg.lessons.length) cfg.lessons = ls.slice();
-      ls.forEach(function(l){
+      if(init && !cfg.lessons.length) cfg.lessons = recent.slice();
+
+      lbox.textContent = '';
+      recent.concat(old.filter(function(l){ return cfg.lessons.indexOf(l) >= 0; })).forEach(function(l){
         lbox.appendChild(chip('checkbox','lesson',l,l,cfg.lessons.indexOf(l)>=0,function(e){
           if(e.target.checked) cfg.lessons.push(l);
           else cfg.lessons = cfg.lessons.filter(function(x){ return x !== l; });
           update();
         }));
       });
-      all.onclick = function(){ cfg.lessons = ls.slice(); drawLessons(); update(); };
+
+      older.textContent = '';
+      if(old.length){
+        older.style.marginTop = '12px';
+        older.appendChild(el('p','hint','上方顯示最新的 ' + Math.min(RECENT, ls.length) + ' 個，還有 ' + old.length + ' 個較早的課次，可搜尋或從選單挑選：'));
+        var row = el('div'); row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:6px';
+        var q = document.createElement('input');
+        q.type = 'text'; q.placeholder = '搜尋課次'; q.value = oldQuery;
+        q.setAttribute('aria-label','搜尋較早的課次');
+        q.style.cssText = 'flex:1 1 140px;min-width:0';
+        var osel = document.createElement('select');
+        osel.setAttribute('aria-label','較早的課次');
+        osel.style.cssText = 'flex:1 1 160px;width:auto;min-width:0';
+        var fillOld = function(){
+          var kw = norm(oldQuery);
+          osel.textContent = '';
+          var hits = old.filter(function(l){ return !kw || norm(l).indexOf(kw) >= 0; });
+          var o0 = el('option',null, hits.length ? '選擇課次（' + hits.length + ' 個）' : '找不到符合的課次');
+          o0.value = ''; osel.appendChild(o0);
+          hits.forEach(function(l){
+            var o = el('option',null,(cfg.lessons.indexOf(l) >= 0 ? '✓ ' : '') + l);
+            o.value = l; osel.appendChild(o);
+          });
+        };
+        q.oninput = function(){ oldQuery = q.value; fillOld(); };
+        osel.onchange = function(){
+          var v = osel.value; if(!v) return;
+          if(cfg.lessons.indexOf(v) < 0) cfg.lessons.push(v);
+          drawLessons(false); update();
+        };
+        fillOld();
+        row.appendChild(q); row.appendChild(osel);
+        older.appendChild(row);
+      }
+      all.onclick = function(){ cfg.lessons = ls.slice(); drawLessons(false); update(); };
+      none.onclick = function(){ cfg.lessons = []; drawLessons(false); update(); };
     }
-    sel.onchange = function(){ cfg.book = sel.value; cfg.lessons = []; drawLessons(); update(); };
-    drawLessons();
+    sel.onchange = function(){ cfg.book = sel.value; cfg.lessons = []; oldQuery = ''; drawLessons(true); update(); };
+    drawLessons(true);
     }
 
     /* 題型 */
